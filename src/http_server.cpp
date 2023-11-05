@@ -18,11 +18,13 @@
 #include "esp_event.h"
 #include "esp_tls.h"
 
+#include <M5Unified.h>
+
 #include <esp_wifi.h>
 #include <esp_system.h>
-#include "http_server.hpp"
 
-#include <M5Unified.h>
+#include "http_server.hpp"
+#include "metrics.hpp"
 
 
 static esp_err_t hello_get_handler(httpd_req_t *req)
@@ -36,6 +38,22 @@ static const httpd_uri_t hello = {
     .uri       = "/",
     .method    = HTTP_GET,
     .handler   = hello_get_handler,
+    .user_ctx  = NULL,
+};
+
+
+static esp_err_t metrics_handler(httpd_req_t *req) {
+    const char* resp_body = metrics_response();
+    httpd_resp_send(req, resp_body, HTTPD_RESP_USE_STRLEN);
+    free((void*)resp_body);
+    return ESP_OK;
+}
+
+static const httpd_uri_t metrics_uri = {
+    .uri       = "/metrics",
+    .method    = HTTP_GET,
+    .handler   = metrics_handler,
+    .user_ctx  = NULL,
 };
 
 httpd_handle_t start_webserver(void)
@@ -50,6 +68,7 @@ httpd_handle_t start_webserver(void)
         // Set URI handlers
         M5.Log.println("Registering URI handlers");
         httpd_register_uri_handler(server, &hello);
+        httpd_register_uri_handler(server, &metrics_uri);
         return server;
     }
 

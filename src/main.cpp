@@ -9,6 +9,7 @@
 #include "const.hpp"
 #include "http_server.hpp"
 #include "wifi.hpp"
+#include "metrics.hpp"
 
 M5Canvas wifi_canvas(&M5.Lcd);
 M5Canvas sensor_canvas(&M5.Lcd);
@@ -37,6 +38,7 @@ extern "C" void app_main() {
         ret = nvs_flash_init();
     }
     ESP_ERROR_CHECK(ret);
+    metrics_init();
 
     auto cfg = M5.config();
     M5.begin(cfg);
