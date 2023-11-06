@@ -103,6 +103,10 @@ static void connect_handler(void* arg, esp_event_base_t event_base,
     wifi_canvas.print("IPv4: ");
     wifi_canvas.setTextColor(GREEN);
     wifi_canvas.printf(IPSTR, IP2STR(&event->ip_info.ip));
+    wifi_canvas.println("");
+    wifi_canvas.setTextColor(WHITE);
+    wifi_canvas.print("Host:");
+    wifi_canvas.println(HOSTNAME);
 
     M5.Lcd.startWrite();
     wifi_canvas.pushSprite(2, 2);
@@ -114,7 +118,7 @@ static void init_lcd() {
     M5.Lcd.fillScreen(BLACK);
     wifi_x = 2;
     wifi_y = 2;
-    wifi_canvas.createSprite(M5.Lcd.width() - 4, wifi_canvas.fontHeight()*2 + 4);
+    wifi_canvas.createSprite(M5.Lcd.width() - 4, wifi_canvas.fontHeight()*3 + 4);
     sensor_x = 2;
     sensor_y = wifi_canvas.height() + wifi_x + 2;
     sensor_canvas.createSprite(M5.Lcd.width() - 4, sensor_canvas.fontHeight(&FreeMono24pt7b)*1 + 4);
@@ -134,9 +138,12 @@ static void draw_wifi_disconnected() {
     wifi_canvas.setTextColor(RED);
     wifi_canvas.println(WIFI_SSID);
     wifi_canvas.setTextColor(WHITE);
-    wifi_canvas.print("Ipv4: ");
+    wifi_canvas.print("IPv4: ");
     wifi_canvas.setTextColor(RED);
     wifi_canvas.println("disconnected");
+    wifi_canvas.setTextColor(WHITE);
+    wifi_canvas.print("Host:");
+    wifi_canvas.println(HOSTNAME);
 
     M5.Lcd.startWrite();
     wifi_canvas.pushSprite(2, 2);

@@ -1,3 +1,5 @@
+#include "wifi.hpp"
+
 #include <string.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -6,6 +8,7 @@
 #include "esp_wifi.h"
 #include "esp_event.h"
 #include "esp_log.h"
+#include "mdns.h"
 
 #include "lwip/err.h"
 #include "lwip/sys.h"
@@ -40,6 +43,12 @@ static const char *TAG = "wifi station";
 // TODO(cbaker) - make this exponentional backoff
 static int s_retry_num = 0;
 
+static wifi_stats stats {
+    connected: 0,
+    rssi: -1,
+    disconnects: 0,
+};
+
 static void wifi_event_handler(void* arg, esp_event_base_t event_base,
                                 int32_t event_id, void* event_data)
 {
@@ -54,11 +63,17 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base,
             xEventGroupSetBits(s_wifi_event_group, WIFI_FAIL_BIT);
         }
         ESP_LOGI(TAG,"connect to the AP fail");
+        if (stats.connected) {
+            stats.disconnects += 1;
+        }
+        stats.connected = 0;
+        stats.rssi = -1;
     } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
         ip_event_got_ip_t* event = (ip_event_got_ip_t*) event_data;
         ESP_LOGI(TAG, "got ip:" IPSTR, IP2STR(&event->ip_info.ip));
         s_retry_num = 0;
         xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
+        stats.connected = 1;
     }
 }
 
@@ -69,7 +84,14 @@ void wifi_init_sta(void)
     // TODO(cbaker)
     ESP_ERROR_CHECK(esp_netif_init());
 
-    esp_netif_create_default_wifi_sta();
+    esp_netif_t * netif  = esp_netif_create_default_wifi_sta();
+    ESP_ERROR_CHECK(esp_netif_set_hostname(netif, HOSTNAME));
+    //initialize mDNS service
+    ESP_ERROR_CHECK(mdns_init());
+    ESP_ERROR_CHECK(mdns_hostname_set(HOSTNAME));
+    ESP_ERROR_CHECK(mdns_instance_name_set(HOSTNAME));
+    ESP_ERROR_CHECK(mdns_service_add(NULL, "_http", "_tcp", 80, NULL, 0));
+    ESP_ERROR_CHECK(mdns_service_add(NULL, "_prometheus-http", "_tcp", 80, NULL, 0));
 
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
@@ -128,4 +150,14 @@ void wifi_init_sta(void)
     } else {
         ESP_LOGE(TAG, "UNEXPECTED EVENT");
     }
+}
+
+wifi_stats wifi_get_stats(void) {
+    wifi_stats s = stats;
+    if (s.connected) {
+        if(esp_wifi_sta_get_rssi(&s.rssi)) {
+            s.rssi = -1;
+        }
+    }
+    return s;
 }
