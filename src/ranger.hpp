@@ -1,0 +1,1 @@
+void ranger_init(void);

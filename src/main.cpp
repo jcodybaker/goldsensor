@@ -10,6 +10,8 @@
 #include "http_server.hpp"
 #include "wifi.hpp"
 #include "metrics.hpp"
+#include "i2c.hpp"
+#include "ranger.hpp"
 
 M5Canvas wifi_canvas(&M5.Lcd);
 M5Canvas sensor_canvas(&M5.Lcd);
@@ -63,6 +65,9 @@ extern "C" void app_main() {
     M5.Imu.getTemp(&temp);
 
     draw_sensor(temp);
+
+    i2c_init();
+    ranger_init();
 }
 
 
