@@ -12,7 +12,7 @@ void ranger_init(void)
 {
   dev.devAddr = VL53L0X_DEFAULT_ADDRESS;
 
-  dev.io_timeout = 0;
+  dev.io_timeout = 500;
   dev.did_timeout = 0;
   dev.timeout_start_ms = 0;
   dev.stop_variable = 0;
@@ -34,9 +34,13 @@ void ranger_init(void)
     ESP_LOGI(TAG, "failed to init VL53L0X");
   }
 
-  vl53l0xSetVcselPulsePeriod(&dev, VcselPeriodPreRange, 18);/*长距离模式  33ms 周期*/
-  vl53l0xSetVcselPulsePeriod(&dev, VcselPeriodFinalRange, 14);/*长距离模式  33ms 周期*/
-  vl53l0xStartContinuous(&dev, 0);
+  // vl53l0xSetVcselPulsePeriod(&dev, VcselPeriodPreRange, 18);/*长距离模式  33ms 周期*/
+  // vl53l0xSetVcselPulsePeriod(&dev, VcselPeriodFinalRange, 14);
+
+  uint16_t range = vl53l0xReadRangeSingleMillimeters(&dev);
+  ESP_LOGI(TAG, "RANGE: %lf", double(range) / double(10));
+
+  // vl53l0xStartContinuous(&dev, 0);
   
 //   range_last = zRangerGetMeasurementAndRestart(&dev);
 //     rangeSet(rangeDown, range_last / 1000.0f);

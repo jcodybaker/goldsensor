@@ -16,7 +16,7 @@ i2c_config_t conf = {
     .sda_pullup_en = GPIO_PULLUP_ENABLE,
     .scl_pullup_en = GPIO_PULLUP_ENABLE,
     .master = {
-        .clk_speed = 400000,  // https://github.com/espressif/esp-idf/blob/master/examples/peripherals/i2c/i2c_simple/main/i2c_simple_main.c#L28C37-L28C43
+        .clk_speed = 100000,  // https://github.com/espressif/esp-idf/blob/master/examples/peripherals/i2c/i2c_simple/main/i2c_simple_main.c#L28C37-L28C43
     },
     .clk_flags = 0,
 };
