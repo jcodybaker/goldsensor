@@ -1,58 +1,115 @@
-#include "ranger.hpp"
-#include "i2c.hpp"
-#include "vl53l0x.hpp"
+#include "vl53l0x_api.h"
+#include "vl53l0x_platform.h"
+#include <malloc.h>
+#include <esp_log.h>
 
-#include "esp_log.h"
+static void print_pal_error(const char *op, VL53L0X_Error Status){
+    char buf[VL53L0X_MAX_STRING_LENGTH];
+    VL53L0X_GetPalErrorString(Status, buf);
+    ESP_LOGI("ranger", "API(%s) Status: %i : %s\n", op, Status, buf);
+}
 
-static VL53L0xDev dev;
-
-static const char * TAG = "VL53L0X";
-
-void ranger_init(void)
+VL53L0X_Error ranger_measure(VL53L0X_Dev_t *pMyDevice, VL53L0X_RangingMeasurementData_t *measurement)
 {
-  dev.devAddr = VL53L0X_DEFAULT_ADDRESS;
+    VL53L0X_Error Status = VL53L0X_ERROR_NONE;
+    Status = VL53L0X_PerformSingleRangingMeasurement(pMyDevice, measurement);
+    if(Status != VL53L0X_ERROR_NONE) {
+        print_pal_error("VL53L0X_PerformSingleRangingMeasurement", Status);
+        return Status;
+    }
+    return VL53L0X_ERROR_NONE;
+}
 
-  dev.io_timeout = 500;
-  dev.did_timeout = 0;
-  dev.timeout_start_ms = 0;
-  dev.stop_variable = 0;
-  dev.measurement_timing_budget_us = 0;
-  dev.measurement_timing_budget_ms = 0;
+VL53L0X_Dev_t * ranger_init()  {
+    VL53L0X_Error Status = VL53L0X_ERROR_NONE;
+    VL53L0X_Dev_t *pMyDevice = (VL53L0X_Dev_t *) malloc(sizeof(VL53L0X_Dev_t));
+    VL53L0X_DeviceInfo_t                DeviceInfo;
+    uint8_t VhvSettings;
+    uint8_t PhaseCal;
 
-  vTaskDelay(M2T(20));
+    // Initialize Commsr
+    pMyDevice->I2cDevAddr      = 0x29;
+    pMyDevice->comms_type      =  1;
+    pMyDevice->comms_speed_khz =  100;
 
-  uint16_t wordData;
-  wordData = vl53l0xGetModelID(&dev);
-  ESP_LOGI(TAG, "%02X\n\r", wordData);
+    // VL53L0X_trace_config("", TRACE_MODULE_ALL, TRACE_LEVEL_ALL, TRACE_FUNCTION_ALL);
 
-  if(wordData == VL53L0X_ID)
-	{
-    ESP_LOGI(TAG, "VL53L0X I2C connection [OK].\n");
-  }
+    // End of implementation specific
+    Status = VL53L0X_DataInit(pMyDevice); // Data initialization
+    if(Status != VL53L0X_ERROR_NONE) {
+        print_pal_error("VL53L0X_DataInit", Status);
+        return NULL;
+    }
+    
+    Status = VL53L0X_GetDeviceInfo(pMyDevice, &DeviceInfo);
+    if(Status != VL53L0X_ERROR_NONE) {
+        print_pal_error("VL53L0X_GetDeviceInfo", Status);
+        return NULL;
+    }
+    
+    printf("VL53L0X_GetDeviceInfo:\n");
+    printf("Device Name : %s\n", DeviceInfo.Name);
+    printf("Device Type : %s\n", DeviceInfo.Type);
+    printf("Device ID : %s\n", DeviceInfo.ProductId);
+    printf("ProductRevisionMajor : %d\n", DeviceInfo.ProductRevisionMajor);
+    printf("ProductRevisionMinor : %d\n", DeviceInfo.ProductRevisionMinor);
 
-  if (!vl53l0xInit(&dev, false)) {
-    ESP_LOGI(TAG, "failed to init VL53L0X");
-  }
+    if ((DeviceInfo.ProductRevisionMinor != 1) && (DeviceInfo.ProductRevisionMinor != 1)) {
+        printf("Error expected cut 1.1 but found cut %d.%d\n",
+                DeviceInfo.ProductRevisionMajor, DeviceInfo.ProductRevisionMinor);
+        Status = VL53L0X_ERROR_NOT_SUPPORTED;
+        print_pal_error("VL53L0X_GetDeviceInfo", Status);
+        return NULL;
+    }
+    
+    Status = VL53L0X_StaticInit(pMyDevice); // Device Initialization
+    if(Status != VL53L0X_ERROR_NONE) {
+        print_pal_error("VL53L0X_StaticInit", Status);
+        return NULL;
+    }
+    
+    Status = VL53L0X_PerformRefCalibration(pMyDevice, &VhvSettings, &PhaseCal); // Device Initialization
+    if(Status != VL53L0X_ERROR_NONE) {
+        print_pal_error("VL53L0X_PerformRefCalibration", Status);
+        return NULL;
+    }
 
-  // vl53l0xSetVcselPulsePeriod(&dev, VcselPeriodPreRange, 18);/*长距离模式  33ms 周期*/
-  // vl53l0xSetVcselPulsePeriod(&dev, VcselPeriodFinalRange, 14);
+    // This seemed to cause problems and in the docs it was described as optional if no cover-glass was used.
+    // 
+    // Status = VL53L0X_PerformRefSpadManagement(pMyDevice,	&refSpadCount, &isApertureSpads); // Device Initialization
+    // if(Status != VL53L0X_ERROR_NONE) {
+    //     print_pal_error(Status);
+    //     return NULL;
+    // }
+    // printf ("refSpadCount = %d, isApertureSpads = %d\n", refSpadCount, isApertureSpads);
 
-  uint16_t range = vl53l0xReadRangeSingleMillimeters(&dev);
-  ESP_LOGI(TAG, "RANGE: %lf", double(range) / double(10));
+    // no need to do this when we use VL53L0X_PerformSingleRangingMeasurement
+    Status = VL53L0X_SetDeviceMode(pMyDevice, VL53L0X_DEVICEMODE_SINGLE_RANGING); // Setup in single ranging mode
+    if(Status != VL53L0X_ERROR_NONE) {
+        print_pal_error("VL53L0X_SetDeviceMode", Status);
+        return NULL;
+    }
 
-  // vl53l0xStartContinuous(&dev, 0);
-  
-//   range_last = zRangerGetMeasurementAndRestart(&dev);
-//     rangeSet(rangeDown, range_last / 1000.0f);
-//     DEBUG_PRINTD("ZRANGE = %f",range_last/ 1000.0f);
-
-//     // check if range is feasible and push into the estimator
-//     // the sensor should not be able to measure >3 [m], and outliers typically
-//     // occur as >8 [m] measurements
-//     if (range_last < RANGE_OUTLIER_LIMIT) {
-//       float distance = (float)range_last * 0.001f; // Scale from [mm] to [m]
-//       float stdDev = expStdA * (1.0f  + expf( expCoeff * (distance - expPointA)));
-//       rangeEnqueueDownRangeInEstimator(distance, stdDev, xTaskGetTickCount());
-//     }
-//   }
+    // This seems to set the minimum required signal amount.
+    Status = VL53L0X_SetLimitCheckValue(pMyDevice, VL53L0X_CHECKENABLE_SIGNAL_RATE_FINAL_RANGE, (FixPoint1616_t)(0.5*65536));
+    if(Status != VL53L0X_ERROR_NONE) {
+        print_pal_error("VL53L0X_SetLimitCheckValue", Status);
+        return NULL;
+    }
+    
+    // This seems to set the minimum range.
+    Status = VL53L0X_SetLimitCheckValue(pMyDevice, VL53L0X_CHECKENABLE_SIGMA_FINAL_RANGE, (FixPoint1616_t)(18*65536));
+    if(Status != VL53L0X_ERROR_NONE) {
+        print_pal_error("VL53L0X_SetLimitCheckValue", Status);
+        return NULL;
+    }			
+    
+    // 200ms (200000us) is high-accuracy mode, 30ms default, 33 long-range, and 20ms high-speed.
+    Status = VL53L0X_SetMeasurementTimingBudgetMicroSeconds(pMyDevice, 200000);
+    if(Status != VL53L0X_ERROR_NONE) {
+        print_pal_error("VL53L0X_SetMeasurementTimingBudgetMicroSeconds", Status);
+        return NULL;
+    }
+    
+    return pMyDevice;
 }

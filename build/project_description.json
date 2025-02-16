@@ -1,7 +1,7 @@
 {
     "version":            "1.1",
     "project_name":       "goldsensor4",
-    "project_version":    "19ab057-dirty",
+    "project_version":    "a5b6758-dirty",
     "project_path":       "C:/Users/jcody/Projects/PlatformIO/Projects/goldsensor4",
     "idf_path":           "C:/Users/jcody/esp/v5.4/esp-idf",
     "build_dir":          "C:/Users/jcody/Projects/PlatformIO/Projects/goldsensor4/build",

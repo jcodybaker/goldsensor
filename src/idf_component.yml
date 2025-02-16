@@ -1,5 +1,6 @@
 dependencies:
   ## Required IDF version
-  idf: ">=5.0"
+  idf: '>=5.0'
   espressif/mdns:
-    version: "^1.0.0"
+    version: ^1.0.0
+  espressif/ds18b20: '*'
